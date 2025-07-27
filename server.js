@@ -31,7 +31,6 @@ const db = new Low(adapter, {
 
 async function startServer() {
   await db.read();
-  // db.data는 이미 { extensions: [] } 형태로 보장됩니다
 
   app.get('/extensions', async (req, res) => {
     await db.read();
@@ -41,7 +40,6 @@ async function startServer() {
     });
   });
 
-  // POST: body에서 두 가지 배열을 받아 저장
   app.post('/extensions', async (req, res) => {
     const { customExtensions, fixedExtensions } = req.body;
     db.data.customExtensions = customExtensions;
