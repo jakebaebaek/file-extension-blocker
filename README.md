@@ -1,4 +1,4 @@
-b##### 배포 주소 : https://file-extension-blocker-r2kj.onrender.com/
+##### 배포 주소 : https://file-extension-blocker-r2kj.onrender.com/
 
 **콜드 스타트로 동작하기에 접속 후 조금 기다려 주시면 감사하겠습니다.**
 ____
