@@ -1,56 +1,61 @@
+// server.js
 import express from 'express';
 import cors from 'cors';
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
+import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs';
+import dotenv from 'dotenv';
 
+dotenv.config();
+const { MONGO_URI, PORT = 3000 } = process.env;
+
+// __dirname 세팅
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DB_FILE = path.join(__dirname, 'db.json');
+const __dirname  = path.dirname(__filename);
+
+// MongoDB 연결
+await mongoose.connect(MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+// 스키마 / 모델 정의
+const configSchema = new mongoose.Schema({
+  fixedExtensions:  { type: [String], default: [] },
+  customExtensions: { type: [String], default: [] },
+});
+const Config = mongoose.models.Config || mongoose.model('Config', configSchema);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// db.json이 없거나 비어 있으면 기본 구조로 초기 생성
-if (!fs.existsSync(DB_FILE) || fs.statSync(DB_FILE).size === 0) {
-  fs.writeFileSync(DB_FILE, JSON.stringify({
-    customExtensions: [],
-    fixedExtensions: []
-  }, null, 2));
+// 초기 문서가 없으면 하나 만들어 둡니다
+let configDoc = await Config.findOne();
+if (!configDoc) {
+  configDoc = await Config.create({});
 }
 
-const adapter = new JSONFile(DB_FILE);
-const db = new Low(adapter, {
-  customExtensions: [],
-  fixedExtensions: []
+// GET: 현재 확장자 리스트
+app.get('/extensions', async (req, res) => {
+  // 항상 최신값 읽기
+  configDoc = await Config.findOne();
+  res.json({
+    fixedExtensions:  configDoc.fixedExtensions,
+    customExtensions: configDoc.customExtensions
+  });
 });
 
-async function startServer() {
-  await db.read();
+// POST: 확장자 업데이트
+app.post('/extensions', async (req, res) => {
+  const { fixedExtensions, customExtensions } = req.body;
+  configDoc.fixedExtensions  = fixedExtensions;
+  configDoc.customExtensions = customExtensions;
+  await configDoc.save();
+  res.json({ message: '저장 완료' });
+});
 
-  app.get('/extensions', async (req, res) => {
-    await db.read();
-    res.json({
-      customExtensions: db.data.customExtensions,
-      fixedExtensions: db.data.fixedExtensions
-    });
-  });
-
-  app.post('/extensions', async (req, res) => {
-    const { customExtensions, fixedExtensions } = req.body;
-    db.data.customExtensions = customExtensions;
-    db.data.fixedExtensions = fixedExtensions;
-    await db.write();
-    res.json({ message: '저장 완료' });
-  });
-
-  app.listen(3000, () => {
-    console.log('✅ 서버 실행됨: http://localhost:3000');
-  });
-}
-
-startServer();
+app.listen(PORT, () => {
+  console.log(`✅ 서버 실행: http://localhost:${PORT}`);
+});
